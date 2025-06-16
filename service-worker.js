@@ -1,5 +1,5 @@
 /* service-worker.js  — オフライン＆更新対応の最小構成 */
-const CACHE_NAME = 'meal-balance-v3';   // ← v2 から +1
+const CACHE_NAME = 'meal-balance-v4';   // ← v2 から +1
 
 const urlsToCache = [
   './',
