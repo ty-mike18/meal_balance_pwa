@@ -9,11 +9,10 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
 
 <style>
-/* …レイアウトはお渡しのコードと同一 … */
+/* === （レイアウトはご提示コードと同一） ============================= */
 body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;max-width:1200px;margin:0 auto;padding:20px;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;color:#333;}
 .container{background:#fff;border-radius:20px;padding:30px;box-shadow:0 20px 40px rgba(0,0,0,.1);}
 h1{text-align:center;color:#2c3e50;margin-bottom:30px;font-size:2.2em;}
-/* 以降 CSS はご提示コードと同じなので割愛 */
 .input-section{background:#f8f9fa;padding:25px;border-radius:15px;margin-bottom:30px;border-left:5px solid #28a745;}
 .date-input{text-align:center;margin-bottom:20px;}
 .date-input input{padding:10px;border:2px solid #dee2e6;border-radius:8px;font-size:1.1em;}
@@ -47,7 +46,10 @@ h1{text-align:center;color:#2c3e50;margin-bottom:30px;font-size:2.2em;}
 
   <!-- 入力 -->
   <div class="input-section">
-    <div class="date-input"><label for="meal-date">記録日：</label><input type="date" id="meal-date"></div>
+    <div class="date-input">
+      <label for="meal-date">記録日：</label>
+      <input type="date" id="meal-date">
+    </div>
     <div class="meals-grid" id="meals-container"></div>
     <button class="save-btn" onclick="saveDailyRecord()">この日の記録を保存</button>
   </div>
@@ -79,8 +81,14 @@ h1{text-align:center;color:#2c3e50;margin-bottom:30px;font-size:2.2em;}
 /* ---------- Service Worker ---------- */
 if('serviceWorker' in navigator){navigator.serviceWorker.register('./service-worker.js');}
 
+/* ---------- 日付ユーティリティ ---------- */
+function todayStr(){
+  const tz = new Date().getTimezoneOffset()*60000;   // 分→ms
+  return new Date(Date.now()-tz).toISOString().split('T')[0]; // YYYY-MM-DD
+}
+
 /* ---------- 定数 / 変数 ---------- */
-const STORAGE_KEY = 'mealData_v1';
+const STORAGE_KEY='mealData_v1';
 const mealNames=[['breakfast','🌅 朝食'],['lunch','🌞 昼食'],['dinner','🌙 夕食']];
 const foodGroups=[['staple','主食'],['side','副菜'],['main','主菜'],['dairy','乳・乳製品'],['fruit','果物']];
 const recommended={staple:5,side:5,main:3,dairy:2,fruit:2};
@@ -110,8 +118,8 @@ function createMealCards(){
 }
 
 /* ---------- Storage ---------- */
-function loadStorage(){ mealData=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}'); }
-function saveStorage(){ localStorage.setItem(STORAGE_KEY,JSON.stringify(mealData)); }
+const loadStorage = () => { mealData=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}'); };
+const saveStorage = () => { localStorage.setItem(STORAGE_KEY,JSON.stringify(mealData)); };
 
 /* ---------- 操作 ---------- */
 function changeCount(id,d){
@@ -126,9 +134,9 @@ function getTotals(){
   }));
   return t;
 }
-function calcScore(t){
-  return Math.round(Object.keys(recommended).reduce((s,k)=>s+Math.min(4,t[k]/recommended[k]*4),0)*10)/10;
-}
+const calcScore = t =>
+  Math.round(Object.keys(recommended).reduce((s,k)=>s+Math.min(4,t[k]/recommended[k]*4),0)*10)/10;
+
 function updateTodayScore(){
   const d=document.getElementById('meal-date').value;
   if(!d)return;
@@ -137,8 +145,11 @@ function updateTodayScore(){
 
 /* ---------- 保存 ---------- */
 function saveDailyRecord(){
-  const date=document.getElementById('meal-date').value;
-  if(!date){alert('日付を選択してください');return;}
+  let date=document.getElementById('meal-date').value;
+  if(!date){ // 入力されていない場合、今日の日付を自動セット
+    date=todayStr();
+    document.getElementById('meal-date').value=date;
+  }
   const tot=getTotals();
   mealData[date]={...tot,score:calcScore(tot)};
   saveStorage();
@@ -150,10 +161,10 @@ function saveDailyRecord(){
 function downloadCSV(){
   if(Object.keys(mealData).length===0){alert('データがありません');return;}
   const header=['date','staple','side','main','dairy','fruit','score'];
-  let csv='\uFEFF'+header.join(',')+'\r\n';              // UTF‑8 BOM
+  let csv='\uFEFF'+header.join(',')+'\r\n';
   Object.keys(mealData).sort().forEach(dt=>{
     const m=mealData[dt];
-    csv += [dt,m.staple,m.side,m.main,m.dairy,m.fruit,m.score].join(',') + '\r\n';
+    csv+=[dt,m.staple,m.side,m.main,m.dairy,m.fruit,m.score].join(',')+'\r\n';
   });
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);
@@ -169,11 +180,13 @@ function drawChart(){
   if(chart)chart.destroy();
   chart=new Chart(ctx,{
     type:'line',
-    data:{labels:dates.map(d=>new Date(d).toLocaleDateString('ja-JP')),
+    data:{
+      labels:dates.map(d=>new Date(d).toLocaleDateString('ja-JP')),
       datasets:[
         {label:'食事バランススコア',data:scores,borderColor:'rgb(75,192,192)',backgroundColor:'rgba(75,192,192,0.2)',fill:true,tension:0.1},
         {label:'目標スコア',data:new Array(scores.length).fill(20),borderColor:'rgb(255,99,132)',borderDash:[5,5],fill:false}
-      ]},
+      ]
+    },
     options:{responsive:true,maintainAspectRatio:false,scales:{y:{min:0,max:20},x:{}}}
   });
 }
@@ -188,8 +201,8 @@ function updateBreakdown(t){
   const names={staple:'主食',side:'副菜',main:'主菜',dairy:'乳・乳製品',fruit:'果物'};
   for(const k in recommended){
     const pct=Math.round(t[k]/recommended[k]*100);
-    wrap.insertAdjacentHTML('beforeend',
-      `<div class="score-item"><h4>${names[k]}</h4><div>${t[k]} / ${recommended[k]}品</div>
+    wrap.insertAdjacentHTML('beforeend',`
+      <div class="score-item"><h4>${names[k]}</h4><div>${t[k]} / ${recommended[k]}品</div>
         <div style="color:${pct>=100?'#28a745':pct>=80?'#ffc107':'#dc3545'}">${pct}%</div></div>`);
   }
 }
@@ -202,20 +215,19 @@ function updateAdvice(){
   const avg={staple:0,side:0,main:0,dairy:0,fruit:0};
   recent.forEach(d=>{for(const k in avg)avg[k]+=d[k];});
   for(const k in avg)avg[k]/=recent.length;
-
   let adv=avgScore>=18?'🌟 素晴らしい食事バランスです！この調子を維持しましょう。':
           avgScore>=15?'👍 良好な食事バランスです。':
           avgScore>=12?'⚡ 食事バランスは悪くありませんが、改善の余地があります。':
           '⚠️ 食事バランスの改善が必要です。';
   const imp=[];
-  if(avg.side <recommended.side*0.8)imp.push('副菜（野菜料理）を増やしましょう');
+  if(avg.side<recommended.side*0.8)imp.push('副菜（野菜料理）を増やしましょう');
   if(avg.fruit<recommended.fruit*0.8)imp.push('果物の摂取を心がけましょう');
   if(avg.dairy<recommended.dairy*0.8)imp.push('乳製品を毎日摂取しましょう');
-  if(avg.main <recommended.main*0.8)imp.push('タンパク質源（主菜）を確保しましょう');
+  if(avg.main<recommended.main*0.8)imp.push('タンパク質源（主菜）を確保しましょう');
   if(imp.length)adv+='<br><br>📝 改善提案：<br>• '+imp.join('<br>• ');
   advDom.innerHTML=adv;
 }
-function redraw(tot){ drawChart();updateSummary();updateBreakdown(tot);updateAdvice(); }
+function redraw(tot){drawChart();updateSummary();updateBreakdown(tot);updateAdvice();}
 
 /* ---------- 全クリア ---------- */
 function clearAllData(){
@@ -226,8 +238,13 @@ function clearAllData(){
 
 /* ---------- 初期化 ---------- */
 function init(){
-  document.getElementById('meal-date').valueAsDate=new Date();
-  createMealCards();loadStorage();redraw({staple:0,side:0,main:0,dairy:0,fruit:0});updateTodayScore();
+  /* === 変更点：todayStr() で“今日”を文字列代入 === */
+  document.getElementById('meal-date').value=todayStr();
+
+  createMealCards();
+  loadStorage();
+  redraw({staple:0,side:0,main:0,dairy:0,fruit:0});
+  updateTodayScore();
 }
 init();
 </script>
